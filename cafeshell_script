@@ -1,0 +1,42 @@
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+# Variables
+REPO_URL="https://github.com/ChinmayiKundur35/static-website.git"
+DEST_DIR="/var/www/html/cafe-static-website"
+APACHE_CONF="/etc/apache2/sites-available/cafe-static-website.conf"
+RETRY_COUNT=3
+
+echo "Updating system packages..."
+sudo apt-get update -y
+sudo apt-get install apache2 git -y
+
+echo "Cloning the repository..."
+for i in $(seq 1 $RETRY_COUNT); do
+    if sudo git clone $REPO_URL /tmp/cafe-static-website; then
+        break
+    fi
+    echo "Retry $i/$RETRY_COUNT failed. Retrying in 5 seconds..."
+    sleep 5
+done
+
+# Create the destination directory if it doesn't exist
+echo "Preparing the web directory..."
+sudo mkdir -p "$DEST_DIR"
+sudo cp -rf /tmp/cafe-static-website/* "$DEST_DIR"
+
+# Configure Apache
+echo "Configuring Apache for cafe-static-website..."
+sudo cp /etc/apache2/sites-available/000-default.conf "$APACHE_CONF"
+sudo sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/cafe-static-website|' "$APACHE_CONF"
+sudo a2ensite cafe-static-website.conf
+
+# Reload and restart Apache
+echo "Restarting Apache..."
+sudo systemctl reload apache2
+sudo systemctl restart apache2
+
+echo "Cleaning up temporary files..."
+sudo rm -rf /tmp/cafe-static-website
+
+echo "Deployment completed successfully! Access your website at http://localhost/"
